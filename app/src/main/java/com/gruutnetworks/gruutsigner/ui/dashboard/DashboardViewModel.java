@@ -61,6 +61,9 @@ public class DashboardViewModel extends AndroidViewModel implements LifecycleObs
     private ManagedChannel channel1;
     private ManagedChannel channel2;
 
+    private String targetMerger1;
+    private String targetMerger2;
+
     private static String sId;
     private static KeyPair keyPair;
 
@@ -108,6 +111,17 @@ public class DashboardViewModel extends AndroidViewModel implements LifecycleObs
             preferenceUtil.put(PreferenceUtil.Key.PORT2_STR, Integer.toString(targetMergers.get(1).getPort()));
         }
 
+        if(targetMerger1 == null) {
+            String mIDs[] = getMergerList(MergerNum.MERGER_1);
+            Random rand = new Random(System.currentTimeMillis());
+            targetMerger1 = mIDs[rand.nextInt(mIDs.length)];
+        }
+        if(targetMerger2 == null) {
+            String mIDs[] = getMergerList(MergerNum.MERGER_2);
+            Random rand = new Random(System.currentTimeMillis());
+            targetMerger2 = mIDs[rand.nextInt(mIDs.length)];
+        }
+
         refreshMerger1();
         refreshMerger2();
     }
@@ -139,6 +153,14 @@ public class DashboardViewModel extends AndroidViewModel implements LifecycleObs
         return targetMergers;
     }
 
+    public void setTargetMerger1(String target){
+        targetMerger1 = target;
+    }
+
+    public void setTargetMerger2(String target){
+        targetMerger2 = target;
+    }
+
     public void refreshMerger1() {
         if (thread1 != null) {
             thread1.interrupt();
@@ -165,7 +187,8 @@ public class DashboardViewModel extends AndroidViewModel implements LifecycleObs
             thread1 = new JoiningThread(this,
                     channel1,
                     logMerger1,
-                    errorMerger1);
+                    errorMerger1,
+                    targetMerger1);
             thread1.start();
         }
     }
@@ -196,9 +219,69 @@ public class DashboardViewModel extends AndroidViewModel implements LifecycleObs
             thread2 = new JoiningThread(this,
                     channel2,
                     logMerger2,
-                    errorMerger2);
+                    errorMerger2,
+                    targetMerger2);
             thread2.start();
         }
+    }
+
+    public String[] getMergerList(MergerNum merger){
+        String[] result = null;
+        ManagedChannel channel;
+        MutableLiveData<String> logMerger;
+        if(merger == MergerNum.MERGER_1){
+            channel = channel1;
+            logMerger = logMerger1;
+        } else {
+            channel = channel2;
+            logMerger = logMerger2;
+        }
+        if ( channel == null || channel.isShutdown() ) {
+            MutableLiveData<Merger> target;
+            if(merger == MergerNum.MERGER_1){
+                if (preferenceUtil.getString(PreferenceUtil.Key.IP1_STR) != null && preferenceUtil.getString(PreferenceUtil.Key.PORT1_STR) != null) {
+                    merger1.setValue(findPresetMergerList(preferenceUtil.getString(PreferenceUtil.Key.IP1_STR),
+                            Integer.parseInt(preferenceUtil.getString(PreferenceUtil.Key.PORT1_STR))));
+                }
+                target = merger1;
+            } else {
+                if (preferenceUtil.getString(PreferenceUtil.Key.IP2_STR) != null && preferenceUtil.getString(PreferenceUtil.Key.PORT2_STR) != null) {
+                    merger2.setValue(findPresetMergerList(preferenceUtil.getString(PreferenceUtil.Key.IP2_STR),
+                            Integer.parseInt(preferenceUtil.getString(PreferenceUtil.Key.PORT2_STR))));
+                }
+                target = merger2;
+            }
+            channel = ManagedChannelBuilder
+                    .forAddress(target.getValue().getUri(), target.getValue().getPort())
+                    .usePlaintext()
+                    .build();
+        }
+        try {
+            result = sendGetMergerList(channel, logMerger);
+        } catch (InterruptedException | ExecutionException ignored) {
+            // AsyncTask was dead
+        }
+        return result;
+    }
+
+    private String[] sendGetMergerList(ManagedChannel channel, MutableLiveData<String> log) throws ExecutionException, InterruptedException {
+        PackMsgGetMergerID packMsgGetMergerID = new PackMsgGetMergerID(
+                sId,
+                GruutConfigs.localChainId
+        );
+
+        MsgStatus receivedStatus = new GrpcTask(this, channel, log).execute(packMsgGetMergerID).get();
+
+        // Check received status
+        if (receivedStatus == null) {
+            // This error message may be caused by a timeout.
+            throw new ErrorMsgException(ErrorMsgException.MsgErr.MSG_NOT_FOUND);
+        } else if (receivedStatus.getStatus() != MsgStatus.Status.SUCCESS) {
+            throw new ErrorMsgException(ErrorMsgException.MsgErr.MSG_MERGER_ERR);
+        }
+        UnpackMsgMergerID unpackMsg = new UnpackMsgMergerID(receivedStatus.getMessage());
+        String[] mIDs = unpackMsg.getMIDs();
+        return mIDs;
     }
 
     public void openAddressSetting(int mergerNum) {
@@ -287,6 +370,7 @@ public class DashboardViewModel extends AndroidViewModel implements LifecycleObs
 
         private final WeakReference<DashboardViewModel> viewModel;
         private final ManagedChannel channel;
+        private final String mergerID;
         private final MutableLiveData<String> log;
         private final MutableLiveData<Boolean> error;
 
@@ -296,9 +380,11 @@ public class DashboardViewModel extends AndroidViewModel implements LifecycleObs
         JoiningThread(DashboardViewModel viewModel,
                       ManagedChannel channel,
                       MutableLiveData<String> log,
-                      MutableLiveData<Boolean> error) {
+                      MutableLiveData<Boolean> error,
+                      String mergerID) {
             this.viewModel = new WeakReference<>(viewModel);
             this.channel = channel;
+            this.mergerID = mergerID;
             this.log = log;
             this.error = error;
         }
@@ -353,7 +439,7 @@ public class DashboardViewModel extends AndroidViewModel implements LifecycleObs
                                     throw new ErrorMsgException(ErrorMsgException.MsgErr.MSG_HEADER_NOT_MATCHED);
                                 }
 
-                                sendPublicKey(channel, msgChallenge, log);
+                                sendPublicKey(channel, mergerID, msgChallenge, log);
                                 return;
                             case MSG_RESPONSE_2:
                                 log.postValue("[RECV]" + "DH Key Ex: Puzzle `B`");
@@ -361,7 +447,7 @@ public class DashboardViewModel extends AndroidViewModel implements LifecycleObs
                                 if (!msgResponse2.isSenderValid()) {
                                     throw new ErrorMsgException(ErrorMsgException.MsgErr.MSG_HEADER_NOT_MATCHED);
                                 }
-                                sendSuccess(channel, msgResponse2, log);
+                                sendSuccess(channel, mergerID, msgResponse2, log);
                                 return;
                             case MSG_ACCEPT:
                                 log.postValue("[RECV]" + "DH Key Ex: MAC verified");
@@ -381,7 +467,7 @@ public class DashboardViewModel extends AndroidViewModel implements LifecycleObs
                             case MSG_REQ_SSIG:
                                 UnpackMsgRequestSignature msgRequestSignature = new UnpackMsgRequestSignature(receivedMsg);
                                 log.postValue("[RECV]" + "Block #" + msgRequestSignature.getBlockHeight());
-                                sendSignature(channel, msgRequestSignature, log);
+                                sendSignature(channel, mergerID, msgRequestSignature, log);
 
                                 return;
                             case MSG_ERROR:
@@ -416,13 +502,14 @@ public class DashboardViewModel extends AndroidViewModel implements LifecycleObs
                 }
             });
 
-            Identity signerIdentity = Identity.newBuilder().setSender(ByteString.copyFrom(sId.getBytes())).build();
-            grpcStream.onNext(signerIdentity);
+            Identity.Builder identity = Identity.newBuilder().setSender(ByteString.copyFrom(sId.getBytes()));
+            identity.setReceiver(ByteString.copyFrom(mergerID.getBytes()));
+            grpcStream.onNext(identity.build());
             Log.d(TAG, channel.toString() + "::Streaming channel opened...");
 
             try {
                 // request Join
-                sendJoinMsg(channel, log);
+                sendJoinMsg(channel, log, mergerID);
             } catch (InterruptedException | ExecutionException ignored) {
                 // AsyncTask was dead
             }
@@ -436,9 +523,10 @@ public class DashboardViewModel extends AndroidViewModel implements LifecycleObs
          * @param channel target merger
          * @throws StatusRuntimeException on GRPC error
          */
-        private void sendJoinMsg(ManagedChannel channel, MutableLiveData<String> log) throws ExecutionException, InterruptedException {
+        private void sendJoinMsg(ManagedChannel channel, MutableLiveData<String> log, String mergerID) throws ExecutionException, InterruptedException {
             PackMsgJoin packMsgJoin = new PackMsgJoin(
                     sId,
+                    mergerID,
                     AuthGeneralUtil.getTimestamp(),
                     GruutConfigs.ver,
                     GruutConfigs.localChainId
@@ -462,7 +550,7 @@ public class DashboardViewModel extends AndroidViewModel implements LifecycleObs
          * @param channel          target merger
          * @param messageChallenge received MSG_CHALLENGE
          */
-        private void sendPublicKey(ManagedChannel channel, UnpackMsgChallenge messageChallenge, MutableLiveData<String> log) throws ExecutionException, InterruptedException {
+        private void sendPublicKey(ManagedChannel channel, String mergerID, UnpackMsgChallenge messageChallenge, MutableLiveData<String> log) throws ExecutionException, InterruptedException {
             // generate signer nonce
             signerNonce = AuthGeneralUtil.getNonce();
 
@@ -501,6 +589,7 @@ public class DashboardViewModel extends AndroidViewModel implements LifecycleObs
 
             PackMsgResponse1 msgResponse1 = new PackMsgResponse1(
                     sId,
+                    mergerID,
                     time,
                     cert,
                     signerNonce,
@@ -528,7 +617,7 @@ public class DashboardViewModel extends AndroidViewModel implements LifecycleObs
          * @param channel          target merger
          * @param messageResponse2 received MSG_RESPONSE_2
          */
-        private void sendSuccess(ManagedChannel channel, UnpackMsgResponse2 messageResponse2, MutableLiveData<String> log) throws ExecutionException, InterruptedException {
+        private void sendSuccess(ManagedChannel channel, String mID, UnpackMsgResponse2 messageResponse2, MutableLiveData<String> log) throws ExecutionException, InterruptedException {
 
             try {
                 // 서명 검증
@@ -561,6 +650,7 @@ public class DashboardViewModel extends AndroidViewModel implements LifecycleObs
 
             PackMsgSuccess msgSuccess = new PackMsgSuccess(
                     sId,
+                    mID,
                     AuthGeneralUtil.getTimestamp(),
                     true
             );
@@ -584,7 +674,7 @@ public class DashboardViewModel extends AndroidViewModel implements LifecycleObs
          * @param msgRequestSignature received MSG_REQ_SSIG
          * @param log                 log live data
          */
-        private void sendSignature(ManagedChannel channel, UnpackMsgRequestSignature msgRequestSignature, MutableLiveData<String> log) throws ExecutionException, InterruptedException {
+        private void sendSignature(ManagedChannel channel, String mID, UnpackMsgRequestSignature msgRequestSignature, MutableLiveData<String> log) throws ExecutionException, InterruptedException {
             if (!msgRequestSignature.isSenderValid()) {
                 throw new ErrorMsgException(ErrorMsgException.MsgErr.MSG_HEADER_NOT_MATCHED);
             }
@@ -614,6 +704,7 @@ public class DashboardViewModel extends AndroidViewModel implements LifecycleObs
 
             PackMsgSignature msgSignature = new PackMsgSignature(
                     sId,
+                    mID,
                     time,
                     signature
             );

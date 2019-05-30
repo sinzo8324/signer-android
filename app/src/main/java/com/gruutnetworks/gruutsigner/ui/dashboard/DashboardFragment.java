@@ -101,13 +101,11 @@ public class DashboardFragment extends Fragment implements PresettingFragment.Pr
 
     @Override
     public void onOkBtnClicked(DashboardViewModel.MergerNum merger) {
-        switch (merger) {
-            case MERGER_1:
-                viewModel.refreshMerger1();
-                break;
-            case MERGER_2:
-                viewModel.refreshMerger2();
-                break;
-        }
+        String[] mIDs = viewModel.getMergerList(merger);
+        MergerSettingFragment settingFragment = MergerSettingFragment.newInstance(mIDs, viewModel, merger);
+        settingFragment.setTargetFragment(this, 0);
+        settingFragment.show(getFragmentManager(), "fragment_address_setting");
+
+        waitForAutoRefresh.removeCallbacksAndMessages(null);
     }
 }

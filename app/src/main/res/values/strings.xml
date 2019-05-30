@@ -18,7 +18,7 @@
     <string name="refresh">REFRESH</string>
     <string name="join">Join</string>
     <string name="leave">Leave</string>
-    <string name="setting_title">Select a merger to connect</string>
+    <string name="setting_title">Select a merger manager to connect</string>
     <string name="join_guide_msg">\nInitially you will connected to 2 mergers randomly.\n\nYou can choose mergers in SETTING</string>
     <string name="join_guide_title">Gruut signer demo</string>
     <string name="signature_empty_string">There\'s no signing logs</string>

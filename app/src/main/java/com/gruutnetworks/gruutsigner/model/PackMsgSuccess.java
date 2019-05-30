@@ -23,23 +23,28 @@ public class PackMsgSuccess extends MsgPacker {
     @SerializedName("sID")
     private String sID;
     @Expose
+    @SerializedName("mID")
+    private String mID;
+    @Expose
     @SerializedName("time")
     private String time;
     @Expose
     @SerializedName("val")
     private boolean val;
 
-    public PackMsgSuccess(String sID, String time, boolean val) {
+    public PackMsgSuccess(String sID, String mID, String time, boolean val) {
         this.sID = sID;
+        this.mID = mID;
         this.time = time;
         this.val = val;
 
         setHeader();
     }
 
-    public PackMsgSuccess(String headerLocalChainId, String sID, String time, boolean val) {
+    public PackMsgSuccess(String headerLocalChainId, String sID, String mID, String time, boolean val) {
         this.headerLocalChainId = headerLocalChainId;
         this.sID = sID;
+        this.mID = mID;
         this.time = time;
         this.val = val;
 

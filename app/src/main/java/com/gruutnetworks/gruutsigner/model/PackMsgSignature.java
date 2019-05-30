@@ -23,23 +23,28 @@ public class PackMsgSignature extends MsgPacker {
     @SerializedName("sID")
     private String sid;
     @Expose
+    @SerializedName("mID")
+    private String mID;
+    @Expose
     @SerializedName("time")
     private String time;
     @Expose
     @SerializedName("sig")
     private String sig;
 
-    public PackMsgSignature(String sid, String time, String sig) {
+    public PackMsgSignature(String sid, String mID, String time, String sig) {
         this.sid = sid;
+        this.mID = mID;
         this.time = time;
         this.sig = sig;
 
         setHeader();
     }
 
-    public PackMsgSignature(String headerLocalChainId, String sid, String time, String sig) {
+    public PackMsgSignature(String headerLocalChainId, String sid, String mID, String time, String sig) {
         this.headerLocalChainId = headerLocalChainId;
         this.sid = sid;
+        this.mID = mID;
         this.time = time;
         this.sig = sig;
 

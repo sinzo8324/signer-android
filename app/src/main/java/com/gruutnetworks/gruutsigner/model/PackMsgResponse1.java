@@ -23,6 +23,9 @@ public class PackMsgResponse1 extends MsgPacker {
     @SerializedName("sID")
     private String sID;  // BASE64 encoded 8 byte data
     @Expose
+    @SerializedName("mID")
+    private String mID;  // BASE64 encoded 8 byte data
+    @Expose
     @SerializedName("time")
     private String time;    // UNIX timestamp
     @Expose
@@ -41,8 +44,9 @@ public class PackMsgResponse1 extends MsgPacker {
     @SerializedName("sig")
     private String sig; // signature with signer's nonce, merger's nonce, dhx, dhy, time
 
-    public PackMsgResponse1(String sID, String time, String cert, String signerNonce, String dhPubKeyX, String dhPubKeyY, String sig) {
+    public PackMsgResponse1(String sID, String mID, String time, String cert, String signerNonce, String dhPubKeyX, String dhPubKeyY, String sig) {
         this.sID = sID;
+        this.mID = mID;
         this.time = time;
         this.cert = cert;
         this.signerNonce = signerNonce;
@@ -53,9 +57,10 @@ public class PackMsgResponse1 extends MsgPacker {
         setHeader();
     }
 
-    public PackMsgResponse1(String headerLocalChainId, String sID, String time, String cert, String signerNonce, String dhPubKeyX, String dhPubKeyY, String sig) {
+    public PackMsgResponse1(String headerLocalChainId, String sID, String mID, String time, String cert, String signerNonce, String dhPubKeyX, String dhPubKeyY, String sig) {
         this.headerLocalChainId = headerLocalChainId;
         this.sID = sID;
+        this.mID = mID;
         this.time = time;
         this.cert = cert;
         this.signerNonce = signerNonce;

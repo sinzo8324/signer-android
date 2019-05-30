@@ -13,6 +13,7 @@ public enum TypeMsg {
     MSG_ACCEPT((byte) 0x59),
     MSG_ECHO((byte) 0x5A),
     MSG_LEAVE((byte) 0x5B),
+    MSG_GET_MERGER_ID((byte)0x5C),
     MSG_REQ_SSIG((byte) 0xB2),
     MSG_SSIG((byte) 0xB3),
     MSG_ERROR((byte) 0xFF);

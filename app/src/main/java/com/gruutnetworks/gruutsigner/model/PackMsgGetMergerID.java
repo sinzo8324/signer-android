@@ -11,42 +11,29 @@ import com.google.gson.annotations.SerializedName;
 import static com.gruutnetworks.gruutsigner.model.MsgHeader.MSG_HEADER_LEN;
 
 /**
- * Title: Join
- * Description: Signer's network participation request
- * Message Type: 0x54
+ * Title: Get Merger ID List
+ * Description: Request the merger ID list to a merger manager which are connected with the merger manager
+ * Message Type: 0x5C
  */
-public class PackMsgJoin extends MsgPacker {
+public class PackMsgGetMergerID extends MsgPacker {
     @Expose
     @SerializedName("sID")
     private String sID;  // BASE64 encoded 8 byte data
     @Expose
-    @SerializedName("mID")
-    private String mID;  // BASE64 encoded 8 byte data
-    @Expose
-    @SerializedName("time")
-    private String time;    // UNIX timestamp
-    @Expose
-    @SerializedName("ver")
-    private String ver;
-    @Expose
     @SerializedName("cID")
     private String localChainId;  // BASE64 encoded 8 byte data
 
-    public PackMsgJoin(String sID, String mID, String time, String ver, String localChainId) {
+    public PackMsgGetMergerID(String sID, String localChainId) {
         this.sID = sID;
-        this.mID = mID;
-        this.time = time;
-        this.ver = ver;
         this.localChainId = localChainId;
-
         setHeader();
     }
 
     @Override
     void setHeader() {
         this.header = new MsgHeader.Builder()
-                .setMsgType(TypeMsg.MSG_JOIN.getType())
-                .setCompressionType(TypeComp.LZ4.getType())
+                .setMsgType(TypeMsg.MSG_GET_MERGER_ID.getType())
+                .setCompressionType(TypeComp.NONE.getType())
                 .setTotalLen(MSG_HEADER_LEN + getCompressedJsonLen())
                 .setLocalChainId(Base64.decode(localChainId, Base64.NO_WRAP)) // Base64 decoding
                 .setSender(Base64.decode(sID, Base64.NO_WRAP)) // Base64 decoding
@@ -72,7 +59,7 @@ public class PackMsgJoin extends MsgPacker {
                 return false;
             }
         }).create();
-        String tmp = gson.toJson(PackMsgJoin.this);
+        String tmp = gson.toJson(PackMsgGetMergerID.this);
         return tmp.getBytes();
     }
 }
